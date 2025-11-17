@@ -108,6 +108,7 @@ function displayWord(word) {
     const translationElement = document.getElementById('englishTranslation');
     translationElement.textContent = word.english;
     translationElement.classList.add('hidden');
+    speakWord(currentWord.swedish);
 }
 
 function displayNewWord() {
@@ -181,6 +182,14 @@ async function init() {
             speakWord(currentWord.swedish);
         } else {
             displayNewWord()
+        }
+    });
+    
+    // Set up click handler for play button
+    document.getElementById('playBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (currentWord) {
+            speakWord(currentWord.swedish);
         }
     });
 }
