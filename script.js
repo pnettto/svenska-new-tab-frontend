@@ -123,7 +123,6 @@ function displayWord(word) {
     const translationElement = document.getElementById('englishTranslation');
     translationElement.textContent = word.english;
     translationElement.classList.add('hidden');
-    speakWord(currentWord.swedish);
 }
 
 function displayNewWord() {
