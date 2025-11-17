@@ -3,16 +3,17 @@ const CSV_URL = 'https://raw.githubusercontent.com/pnettto/svenska-flashcards/re
 const CACHE_KEY = 'swedishWords';
 
 // Azure Speech Configuration
-const SPEECH_KEY = 'YOUR_SPEECH_KEY_HERE';
+const SPEECH_KEY = localStorage.getItem('SPEECH_KEY');
 const SPEECH_REGION = 'swedencentral';
 
 let azureSynthesizer = null;
 let currentWord = null;
+let useAzureSpeech = false;
 
 // Initialize Azure Speech Synthesizer
 function initializeSpeech() {
     if (typeof SpeechSDK === 'undefined') {
-        console.error('Azure Speech SDK not loaded');
+        console.warn('Azure Speech SDK not loaded, will use browser speech synthesis');
         return false;
     }
     
@@ -23,36 +24,63 @@ function initializeSpeech() {
         );
         speechConfig.speechSynthesisVoiceName = 'sv-SE-SofieNeural';
         azureSynthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig);
+        useAzureSpeech = true;
         return true;
     } catch (error) {
-        console.error('Error initializing speech:', error);
+        console.warn('Error initializing Azure speech, will use browser speech synthesis:', error);
         return false;
     }
 }
 
-// Speak the Swedish word using Azure Speech
-function speakWord(text) {
-    if (!azureSynthesizer) {
-        console.error('Speech synthesizer not initialized');
-        return;
-    }
-    
-    azureSynthesizer.speakTextAsync(
-        text,
-        result => {
-            if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
-                console.log('Speech synthesis succeeded');
-            } else {
-                console.error('Speech synthesis failed:', result.errorDetails);
-            }
-        },
-        error => {
-            console.error('Error during speech synthesis:', error);
+// Speak using browser's built-in speech synthesis
+function speakWithBrowser(text) {
+    if ('speechSynthesis' in window) {
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'sv-SE';
+        utterance.rate = 0.9;
+        
+        // Try to find a Swedish voice
+        const voices = window.speechSynthesis.getVoices();
+        const swedishVoice = voices.find(voice => voice.lang.startsWith('sv'));
+        if (swedishVoice) {
+            utterance.voice = swedishVoice;
         }
-    );
+        
+        window.speechSynthesis.speak(utterance);
+        console.log('Using browser speech synthesis');
+    } else {
+        console.error('Browser speech synthesis not supported');
+    }
 }
 
-
+// Speak the Swedish word using Azure Speech or browser fallback
+function speakWord(text) {
+    if (useAzureSpeech && azureSynthesizer) {
+        azureSynthesizer.speakTextAsync(
+            text,
+            result => {
+                if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
+                    console.log('Azure speech synthesis succeeded');
+                } else {
+                    console.error('Azure speech synthesis failed:', result.errorDetails);
+                    // Fallback to browser speech on error
+                    speakWithBrowser(text);
+                }
+            },
+            error => {
+                console.error('Error during Azure speech synthesis:', error);
+                // Fallback to browser speech on error
+                speakWithBrowser(text);
+            }
+        );
+    } else {
+        // Use browser speech synthesis as fallback
+        speakWithBrowser(text);
+    }
+}
 // Parse CSV data into array of word objects
 function parseCSV(csvText) {
     const lines = csvText.trim().split('\n');
@@ -111,6 +139,15 @@ async function fetchAndCacheWords() {
 async function init() {
     // Initialize Azure speech synthesis
     initializeSpeech();
+    
+    // Load voices for browser speech synthesis fallback
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.getVoices();
+        // Some browsers need this event to load voices
+        window.speechSynthesis.onvoiceschanged = () => {
+            window.speechSynthesis.getVoices();
+        };
+    }
     
     // Try to get cached words first for immediate display
     let words = null;
