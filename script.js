@@ -2,6 +2,57 @@
 const CSV_URL = 'https://raw.githubusercontent.com/pnettto/svenska-flashcards/refs/heads/main/flashcards/vocabulary-vardagslivert.csv';
 const CACHE_KEY = 'swedishWords';
 
+// Azure Speech Configuration
+const SPEECH_KEY = 'YOUR_SPEECH_KEY_HERE';
+const SPEECH_REGION = 'swedencentral';
+
+let azureSynthesizer = null;
+let currentWord = null;
+
+// Initialize Azure Speech Synthesizer
+function initializeSpeech() {
+    if (typeof SpeechSDK === 'undefined') {
+        console.error('Azure Speech SDK not loaded');
+        return false;
+    }
+    
+    try {
+        const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
+            SPEECH_KEY,
+            SPEECH_REGION
+        );
+        speechConfig.speechSynthesisVoiceName = 'sv-SE-SofieNeural';
+        azureSynthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig);
+        return true;
+    } catch (error) {
+        console.error('Error initializing speech:', error);
+        return false;
+    }
+}
+
+// Speak the Swedish word
+function speakWord(text) {
+    if (!azureSynthesizer) {
+        console.error('Speech synthesizer not initialized');
+        return;
+    }
+    
+    azureSynthesizer.speakTextAsync(
+        text,
+        result => {
+            if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
+                console.log('Speech synthesis succeeded');
+            } else {
+                console.error('Speech synthesis failed:', result.errorDetails);
+            }
+        },
+        error => {
+            console.error('Error during speech synthesis:', error);
+        }
+    );
+}
+
+
 // Parse CSV data into array of word objects
 function parseCSV(csvText) {
     const lines = csvText.trim().split('\n');
@@ -24,6 +75,7 @@ function getRandomWord(words) {
 
 // Display a word on the page
 function displayWord(word) {
+    currentWord = word;
     document.getElementById('swedishWord').textContent = word.swedish;
     const translationElement = document.getElementById('englishTranslation');
     translationElement.textContent = word.english;
@@ -49,6 +101,9 @@ async function fetchAndCacheWords() {
 
 // Initialize the extension
 async function init() {
+    // Initialize speech synthesis
+    initializeSpeech();
+    
     // Try to get cached words first for immediate display
     let words = null;
     const cachedWords = localStorage.getItem(CACHE_KEY);
@@ -76,6 +131,13 @@ async function init() {
     document.getElementById('swedishWord').addEventListener('click', () => {
         const translationElement = document.getElementById('englishTranslation');
         translationElement.classList.toggle('hidden');
+    });
+    
+    // Set up speak button click handler
+    document.getElementById('speakBtn').addEventListener('click', () => {
+        if (currentWord) {
+            speakWord(currentWord.swedish);
+        }
     });
     
     // Set up button click handler

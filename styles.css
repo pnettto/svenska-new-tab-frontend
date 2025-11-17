@@ -113,6 +113,15 @@ body {
     font-style: italic;
 }
 
+.button-container {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.speak-btn,
 .new-word-btn {
     background: white;
     color: #667eea;
@@ -127,18 +136,46 @@ body {
     touch-action: manipulation;
 }
 
+.speak-btn,
+.new-word-btn {
+    background: white;
+    color: #667eea;
+    border: none;
+    padding: 15px 30px;
+    font-size: 1.1rem;
+    border-radius: 50px;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    touch-action: manipulation;
+}
+
+.speak-btn:hover,
 .new-word-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
+.speak-btn:hover,
+.new-word-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.speak-btn:active,
 .new-word-btn:active {
     transform: translateY(0);
 }
 
 @media (max-width: 480px) {
+    .speak-btn,
     .new-word-btn {
         font-size: 1rem;
         padding: 12px 24px;
+    }
+    
+    .button-container {
+        gap: 10px;
     }
 }
