@@ -59,6 +59,21 @@ function speakWithBrowser(text) {
 // Speak the Swedish word using Azure Speech or browser fallback
 function speakWord(text) {
     if (useAzureSpeech && azureSynthesizer) {
+        // Stop any ongoing synthesis by recreating the synthesizer
+        try {
+            azureSynthesizer.close();
+        } catch (e) {
+            console.warn('Error closing synthesizer:', e);
+        }
+        
+        // Recreate the synthesizer
+        const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
+            SPEECH_KEY,
+            SPEECH_REGION
+        );
+        speechConfig.speechSynthesisVoiceName = 'sv-SE-SofieNeural';
+        azureSynthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig);
+        
         azureSynthesizer.speakTextAsync(
             text,
             result => {
