@@ -5,5 +5,8 @@
   "description": "Learn a new Swedish word every time you open a new tab",
   "chrome_url_overrides": {
     "newtab": "index.html"
-  }
+  },
+  "host_permissions": [
+    "https://api.openai.com/*"
+  ]
 }

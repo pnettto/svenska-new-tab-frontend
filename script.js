@@ -1,10 +1,15 @@
 // CSV URL
 const CSV_URL = 'words.csv';
 const CACHE_KEY = 'swedishWords';
+const EXAMPLES_CACHE_KEY = 'swedishExamples';
 
 // Azure Speech Configuration
 const SPEECH_KEY = localStorage.getItem('SPEECH_KEY');
 const SPEECH_REGION = 'swedencentral';
+
+// OpenAI Configuration
+const OPENAI_API_KEY = localStorage.getItem('OPENAI_API_KEY');
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 let azureSynthesizer = null;
 let currentWord = null;
@@ -123,6 +128,11 @@ function displayWord(word) {
     const translationElement = document.getElementById('englishTranslation');
     translationElement.textContent = word.english;
     translationElement.classList.add('hidden');
+    
+    // Reset examples section
+    document.getElementById('examplesContainer').classList.add('hidden');
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('generateBtn').disabled = false;
 }
 
 function displayNewWord() {
@@ -206,6 +216,156 @@ async function init() {
             speakWord(currentWord.swedish);
         }
     });
+    
+    // Set up click handler for generate examples button
+    document.getElementById('generateBtn').addEventListener('click', async () => {
+        if (currentWord && OPENAI_API_KEY) {
+            await generateExamples(currentWord.swedish, currentWord.english);
+        } else if (!OPENAI_API_KEY) {
+            alert('Please set your OpenAI API key in localStorage:\nlocalStorage.setItem("OPENAI_API_KEY", "your-api-key")');
+        }
+    });
+}
+
+// OpenAI Functions
+
+// Load cached examples if available
+function loadCachedExamples(swedishWord) {
+    try {
+        const cache = localStorage.getItem(EXAMPLES_CACHE_KEY);
+        if (cache) {
+            const examplesCache = JSON.parse(cache);
+            if (examplesCache[swedishWord]) {
+                displayExamples(examplesCache[swedishWord]);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading cached examples:', error);
+    }
+}
+
+// Save examples to cache
+function saveExamplesToCache(swedishWord, examples) {
+    try {
+        let cache = {};
+        const existingCache = localStorage.getItem(EXAMPLES_CACHE_KEY);
+        if (existingCache) {
+            cache = JSON.parse(existingCache);
+        }
+        cache[swedishWord] = examples;
+        localStorage.setItem(EXAMPLES_CACHE_KEY, JSON.stringify(cache));
+    } catch (error) {
+        console.error('Error saving examples to cache:', error);
+    }
+}
+
+// Generate examples using OpenAI
+async function generateExamples(swedishWord, englishTranslation) {
+    const generateBtn = document.getElementById('generateBtn');
+    const loading = document.getElementById('loading');
+    const examplesContainer = document.getElementById('examplesContainer');
+    
+    // Show loading state
+    generateBtn.disabled = true;
+    loading.classList.remove('hidden');
+    examplesContainer.classList.add('hidden');
+    
+    try {
+        const response = await fetch(OPENAI_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENAI_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a Swedish language teacher helping students learn Swedish. Generate simple, practical example sentences that demonstrate how to use Swedish words in everyday contexts. Each example should be at A2-B1 level (beginner to intermediate).'
+                    },
+                    {
+                        role: 'user',
+                        content: `Generate 3 example sentences using the Swedish word "${swedishWord}" (which means "${englishTranslation}" in English). For each example, provide:
+1. The Swedish sentence
+2. The English translation
+
+Format your response as a JSON array with objects containing "swedish" and "english" properties. Example format:
+[{"swedish": "...", "english": "..."}, {"swedish": "...", "english": "..."}, {"swedish": "...", "english": "..."}]
+
+Make the sentences natural, practical, and at beginner-intermediate level.`
+                    }
+                ],
+                temperature: 0.7,
+                max_tokens: 500
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        const content = data.choices[0].message.content;
+        
+        // Parse the JSON response
+        let examples;
+        try {
+            // Try to extract JSON from the response (in case it's wrapped in markdown code blocks)
+            const jsonMatch = content.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+                examples = JSON.parse(jsonMatch[0]);
+            } else {
+                examples = JSON.parse(content);
+            }
+        } catch (parseError) {
+            console.error('Error parsing OpenAI response:', parseError);
+            throw new Error('Failed to parse examples from OpenAI response');
+        }
+        
+        // Save to cache
+        saveExamplesToCache(swedishWord, examples);
+        
+        // Display examples
+        displayExamples(examples);
+        
+    } catch (error) {
+        console.error('Error generating examples:', error);
+        alert('Failed to generate examples. Please check your API key and try again.');
+    } finally {
+        loading.classList.add('hidden');
+        generateBtn.disabled = false;
+    }
+}
+
+// Display examples on the page
+function displayExamples(examples) {
+    const examplesContainer = document.getElementById('examplesContainer');
+    const examplesList = document.getElementById('examplesList');
+    
+    // Clear existing examples
+    examplesList.innerHTML = '';
+    
+    // Add each example
+    examples.forEach(example => {
+        const exampleItem = document.createElement('div');
+        exampleItem.className = 'example-item';
+        
+        const swedishText = document.createElement('div');
+        swedishText.className = 'example-swedish';
+        swedishText.textContent = example.swedish;
+        
+        const englishText = document.createElement('div');
+        englishText.className = 'example-english';
+        englishText.textContent = example.english;
+        
+        exampleItem.appendChild(swedishText);
+        exampleItem.appendChild(englishText);
+        examplesList.appendChild(exampleItem);
+    });
+    
+    // Show the examples container
+    examplesContainer.classList.remove('hidden');
 }
 
 // Start the extension
