@@ -2,6 +2,7 @@
 const CSV_URL = 'words.csv';
 const CACHE_KEY = 'swedishWords';
 const EXAMPLES_CACHE_KEY = 'swedishExamples';
+const WORD_COUNTER_KEY = 'swedishWordCounter';
 
 // Azure Speech Configuration
 const SPEECH_KEY = localStorage.getItem('SPEECH_KEY');
@@ -121,6 +122,46 @@ function getRandomWord(words) {
     return words[Math.floor(Math.random() * words.length)];
 }
 
+// Normalize word to use as key
+function getWordKey(swedishWord) {
+    return swedishWord.toLowerCase().replace(/\s+/g, '_');
+}
+
+// Get counter data from localStorage
+function getCounterData() {
+    try {
+        const existingCounter = localStorage.getItem(WORD_COUNTER_KEY);
+        return existingCounter ? JSON.parse(existingCounter) : {};
+    } catch (error) {
+        console.error('Error reading word counter:', error);
+        return {};
+    }
+}
+
+// Save counter data to localStorage
+function saveCounterData(counter) {
+    try {
+        localStorage.setItem(WORD_COUNTER_KEY, JSON.stringify(counter));
+    } catch (error) {
+        console.error('Error saving word counter:', error);
+    }
+}
+
+// Increment word counter in localStorage
+function incrementWordCounter(swedishWord) {
+    const key = getWordKey(swedishWord);
+    const counter = getCounterData();
+    counter[key] = (counter[key] || 0) + 1;
+    saveCounterData(counter);
+}
+
+// Get how many times a word has been seen
+function getWordCount(swedishWord) {
+    const key = getWordKey(swedishWord);
+    const counter = getCounterData();
+    return counter[key] || 0;
+}
+
 // Display a word on the page
 function displayWord(word) {
     currentWord = word;
@@ -133,6 +174,9 @@ function displayWord(word) {
     document.getElementById('examplesContainer').classList.add('hidden');
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('generateBtn').disabled = false;
+    
+    // Increment the counter for this word
+    incrementWordCounter(word.swedish);
 }
 
 function displayNewWord() {
