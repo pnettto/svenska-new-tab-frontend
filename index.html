@@ -7,6 +7,23 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <button class="add-word-btn" id="addWordBtn" title="Add custom word">+</button>
+    
+    <div class="modal hidden" id="customWordModal">
+        <div class="modal-content">
+            <h2>Lägg till eget ord</h2>
+            <div class="input-group">
+                <label for="customSwedish">Svenska ord:</label>
+                <input type="text" id="customSwedish" placeholder="t.ex. hund">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" id="cancelBtn">Avbryt</button>
+                <button class="btn-primary" id="submitWordBtn">Lägg till</button>
+            </div>
+            <div class="loading-translation hidden" id="loadingTranslation">Hämtar översättning...</div>
+        </div>
+    </div>
+    
     <div class="container">
         <div class="word-card">
             <h1 class="swedish-word" id="swedishWord"></h1>

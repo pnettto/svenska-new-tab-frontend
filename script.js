@@ -347,6 +347,35 @@ async function init() {
             displayNewWord();
         }
     });
+    
+    // Set up click handler for add word button
+    document.getElementById('addWordBtn').addEventListener('click', () => {
+        openCustomWordModal();
+    });
+    
+    // Set up click handler for cancel button
+    document.getElementById('cancelBtn').addEventListener('click', () => {
+        closeCustomWordModal();
+    });
+    
+    // Set up click handler for submit word button
+    document.getElementById('submitWordBtn').addEventListener('click', () => {
+        submitCustomWord();
+    });
+    
+    // Set up click handler for modal backdrop
+    document.getElementById('customWordModal').addEventListener('click', (e) => {
+        if (e.target.id === 'customWordModal') {
+            closeCustomWordModal();
+        }
+    });
+    
+    // Set up enter key handler for input fields
+    document.getElementById('customSwedish').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            submitCustomWord();
+        }
+    });
 }
 
 // Load cached examples if available
@@ -482,6 +511,90 @@ function displayExamples(examples) {
     
     // Show the examples container
     examplesContainer.classList.remove('hidden');
+}
+
+// Open custom word modal
+function openCustomWordModal() {
+    const modal = document.getElementById('customWordModal');
+    modal.classList.remove('hidden');
+    document.getElementById('customSwedish').focus();
+}
+
+// Close custom word modal
+function closeCustomWordModal() {
+    const modal = document.getElementById('customWordModal');
+    modal.classList.add('hidden');
+    // Clear inputs
+    document.getElementById('customSwedish').value = '';
+    document.getElementById('loadingTranslation').classList.add('hidden');
+}
+
+// Submit custom word
+async function submitCustomWord() {
+    const swedishInput = document.getElementById('customSwedish');
+    const submitBtn = document.getElementById('submitWordBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const loadingTranslation = document.getElementById('loadingTranslation');
+    
+    const swedish = swedishInput.value.trim();
+    
+    if (!swedish) {
+        alert('Vänligen fyll i ett svenskt ord / Please enter a Swedish word');
+        return;
+    }
+    
+    // Disable buttons and show loading
+    submitBtn.disabled = true;
+    cancelBtn.disabled = true;
+    swedishInput.disabled = true;
+    loadingTranslation.classList.remove('hidden');
+    
+    try {
+        // Call API to get translation
+        const response = await fetch(`${PROXY_API_URL}/api/translate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                text: swedish,
+                sourceLang: 'sv',
+                targetLang: 'en'
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Translation API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const english = data.translation;
+        
+        const customWord = { swedish, english };
+        
+        // Insert the custom word after the current position in shuffled words
+        if (shuffledWords.length > 0) {
+            shuffledWords.splice(shuffledIndex, 0, customWord);
+        } else {
+            shuffledWords.push(customWord);
+            shuffledIndex = 0;
+        }
+        
+        // Close modal and display the custom word
+        closeCustomWordModal();
+        displayWord(customWord);
+        shuffledIndex++; // Move to next position after displaying
+        
+    } catch (error) {
+        console.error('Error translating word:', error);
+        alert('Kunde inte hämta översättning / Failed to fetch translation. Make sure your proxy server is running.');
+    } finally {
+        // Re-enable buttons
+        submitBtn.disabled = false;
+        cancelBtn.disabled = false;
+        swedishInput.disabled = false;
+        loadingTranslation.classList.add('hidden');
+    }
 }
 
 // Start the extension
