@@ -9,8 +9,8 @@ const SPEECH_KEY = localStorage.getItem('SPEECH_KEY');
 const SPEECH_REGION = 'swedencentral';
 
 // OpenAI Configuration
-const OPENAI_API_KEY = localStorage.getItem('OPENAI_API_KEY');
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+// Use proxy server instead of direct API calls to protect API key on mobile
+const PROXY_API_URL = localStorage.getItem('PROXY_API_URL') || 'http://localhost:3000/api/generate-examples';
 
 let azureSynthesizer = null;
 let currentWord = null;
@@ -272,10 +272,8 @@ async function init() {
     
     // Set up click handler for generate examples button
     document.getElementById('generateBtn').addEventListener('click', async () => {
-        if (currentWord && OPENAI_API_KEY) {
+        if (currentWord) {
             await generateExamples(currentWord.swedish, currentWord.english);
-        } else if (!OPENAI_API_KEY) {
-            alert('Please set your OpenAI API key in localStorage:\nlocalStorage.setItem("OPENAI_API_KEY", "your-api-key")');
         }
     });
 }
@@ -312,7 +310,7 @@ function saveExamplesToCache(swedishWord, examples) {
     }
 }
 
-// Generate examples using OpenAI
+// Generate examples using OpenAI via proxy server
 async function generateExamples(swedishWord, englishTranslation) {
     const generateBtn = document.getElementById('generateBtn');
     const loading = document.getElementById('loading');
@@ -324,57 +322,24 @@ async function generateExamples(swedishWord, englishTranslation) {
     examplesContainer.classList.add('hidden');
     
     try {
-        const response = await fetch(OPENAI_API_URL, {
+        const response = await fetch(PROXY_API_URL, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENAI_API_KEY}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a Swedish language teacher helping students learn Swedish. Generate simple, practical example sentences that demonstrate how to use Swedish words in everyday contexts. Each example should be at A2-B1 level (beginner to intermediate).'
-                    },
-                    {
-                        role: 'user',
-                        content: `Generate 3 example sentences using the Swedish word "${swedishWord}" (which means "${englishTranslation}" in English). For each example, provide:
-1. The Swedish sentence
-2. The English translation
-
-Format your response as a JSON array with objects containing "swedish" and "english" properties. Example format:
-[{"swedish": "...", "english": "..."}, {"swedish": "...", "english": "..."}, {"swedish": "...", "english": "..."}]
-
-Make the sentences natural, practical, and at beginner-intermediate level.`
-                    }
-                ],
-                temperature: 0.7,
-                max_tokens: 500
+                swedishWord: swedishWord,
+                englishTranslation: englishTranslation
             })
         });
         
         if (!response.ok) {
-            throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Server error: ${response.status}`);
         }
         
         const data = await response.json();
-        const content = data.choices[0].message.content;
-        
-        // Parse the JSON response
-        let examples;
-        try {
-            // Try to extract JSON from the response (in case it's wrapped in markdown code blocks)
-            const jsonMatch = content.match(/\[[\s\S]*\]/);
-            if (jsonMatch) {
-                examples = JSON.parse(jsonMatch[0]);
-            } else {
-                examples = JSON.parse(content);
-            }
-        } catch (parseError) {
-            console.error('Error parsing OpenAI response:', parseError);
-            throw new Error('Failed to parse examples from OpenAI response');
-        }
+        const examples = data.examples;
         
         // Save to cache
         saveExamplesToCache(swedishWord, examples);
@@ -384,7 +349,7 @@ Make the sentences natural, practical, and at beginner-intermediate level.`
         
     } catch (error) {
         console.error('Error generating examples:', error);
-        alert('Failed to generate examples. Please check your API key and try again.');
+        alert(`Failed to generate examples: ${error.message}\n\nMake sure your proxy server is running.`);
     } finally {
         loading.classList.add('hidden');
         generateBtn.disabled = false;
