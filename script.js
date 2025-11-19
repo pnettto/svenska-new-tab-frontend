@@ -10,7 +10,7 @@ const SPEECH_REGION = 'swedencentral';
 
 // OpenAI Configuration
 // Use proxy server instead of direct API calls to protect API key on mobile
-const PROXY_API_URL = localStorage.getItem('PROXY_API_URL') || 'http://localhost:3000/api/generate-examples';
+const PROXY_API_URL = localStorage.getItem('PROXY_API_URL') || 'https://new-tab-svenska.onrender.com/api/generate-examples' || 'http://localhost:3000/api/generate-examples';
 
 let azureSynthesizer = null;
 let currentWord = null;
