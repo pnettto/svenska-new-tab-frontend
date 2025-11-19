@@ -42,41 +42,11 @@ body {
     min-width: 400px;
 }
 
-.play-btn {
-    background: transparent;
-    color: white;
-    border: none;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    margin: 0 auto;
-}
-
-.play-btn:hover {
-    transform: scale(1.1);
-}
-
-.play-btn:active {
-    transform: scale(0.95);
-}
-
 @media (max-width: 768px) {
     .word-card {
         padding: 40px 30px;
         min-width: unset;
         width: 100%;
-    }
-    
-    .play-btn {
-        width: 50px;
-        height: 50px;
-        font-size: 1.2rem;
     }
 }
 
@@ -216,7 +186,7 @@ body {
     width: 100%;
 }
 
-.generate-btn {
+.btn {
     background: white;
     color: #667eea;
     border: none;
@@ -230,16 +200,16 @@ body {
     touch-action: manipulation;
 }
 
-.generate-btn:hover {
+.btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
-.generate-btn:active {
+.btn:active {
     transform: translateY(0);
 }
 
-.generate-btn:disabled {
+.btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;
@@ -324,7 +294,7 @@ body {
         font-size: 0.9rem;
     }
     
-    .generate-btn {
+    .btn {
         font-size: 1rem;
         padding: 12px 24px;
     }

@@ -15,6 +15,7 @@ const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 let azureSynthesizer = null;
 let currentWord = null;
 let useAzureSpeech = false;
+let translationRevealed = false;
 
 // Initialize Azure Speech Synthesizer
 function initializeSpeech() {
@@ -165,6 +166,7 @@ function getWordCount(swedishWord) {
 // Display a word on the page
 function displayWord(word) {
     currentWord = word;
+    translationRevealed = false;
     document.getElementById('swedishWord').textContent = word.swedish;
     const translationElement = document.getElementById('englishTranslation');
     translationElement.textContent = word.english;
@@ -247,7 +249,14 @@ async function init() {
         const translationElement = document.getElementById('englishTranslation');
         if (translationElement.classList.contains('hidden')) {
             translationElement.classList.remove('hidden')
+            translationRevealed = true;
             speakWord(currentWord.swedish);
+            // Update examples display if they're already shown
+            const examplesContainer = document.getElementById('examplesContainer');
+            if (!examplesContainer.classList.contains('hidden')) {
+                const englishTranslations = document.querySelectorAll('.example-english');
+                englishTranslations.forEach(el => el.classList.remove('hidden'));
+            }
         } else {
             displayNewWord()
         }
@@ -409,6 +418,11 @@ function displayExamples(examples) {
         const englishText = document.createElement('div');
         englishText.className = 'example-english';
         englishText.textContent = example.english;
+        
+        // Hide English translation if main word translation hasn't been revealed
+        if (!translationRevealed) {
+            englishText.classList.add('hidden');
+        }
         
         exampleItem.appendChild(swedishText);
         exampleItem.appendChild(englishText);
