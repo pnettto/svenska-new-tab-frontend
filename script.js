@@ -4,17 +4,11 @@ const CACHE_KEY = 'swedishWords';
 const EXAMPLES_CACHE_KEY = 'swedishExamples';
 const WORD_COUNTER_KEY = 'swedishWordCounter';
 
-// Azure Speech Configuration
-const SPEECH_KEY = localStorage.getItem('SPEECH_KEY');
-const SPEECH_REGION = 'swedencentral';
-
-// OpenAI Configuration
 // Use proxy server instead of direct API calls to protect API key on mobile
 const PROXY_API_URL = localStorage.getItem('PROXY_API_URL') || 'https://new-tab-svenska.onrender.com';
 
-let azureSynthesizer = null;
 let currentWord = null;
-let useAzureSpeech = false;
+let audioCache = {}; // Cache for audio blobs
 let translationRevealed = false;
 let wordHistory = [];
 let historyIndex = -1;
@@ -22,90 +16,80 @@ let shuffledWords = [];
 let shuffledIndex = 0;
 let isGeneratingExamples = false;
 
-// Initialize Azure Speech Synthesizer
-function initializeSpeech() {
-    if (typeof SpeechSDK === 'undefined') {
-        console.warn('Azure Speech SDK not loaded, will use browser speech synthesis');
-        return false;
+// Preload audio for a word
+async function preloadAudio(text) {
+    if (audioCache[text]) {
+        return; // Already cached
     }
     
     try {
-        const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
-            SPEECH_KEY,
-            SPEECH_REGION
-        );
-        speechConfig.speechSynthesisVoiceName = 'sv-SE-SofieNeural';
-        azureSynthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig);
-        useAzureSpeech = true;
-        return true;
-    } catch (error) {
-        console.warn('Error initializing Azure speech, will use browser speech synthesis:', error);
-        return false;
-    }
-}
-
-// Speak using browser's built-in speech synthesis
-function speakWithBrowser(text) {
-    if ('speechSynthesis' in window) {
-        // Cancel any ongoing speech
-        window.speechSynthesis.cancel();
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'sv-SE';
-        utterance.rate = 0.9;
-        
-        // Try to find a Swedish voice
-        const voices = window.speechSynthesis.getVoices();
-        const swedishVoice = voices.find(voice => voice.lang.startsWith('sv'));
-        if (swedishVoice) {
-            utterance.voice = swedishVoice;
-        }
-        
-        window.speechSynthesis.speak(utterance);
-        console.log('Using browser speech synthesis');
-    } else {
-        console.error('Browser speech synthesis not supported');
-    }
-}
-
-// Speak the Swedish word using Azure Speech or browser fallback
-function speakWord(text) {
-    if (useAzureSpeech && azureSynthesizer) {
-        // Stop any ongoing synthesis by recreating the synthesizer
-        try {
-            azureSynthesizer.close();
-        } catch (e) {
-            console.warn('Error closing synthesizer:', e);
-        }
-        
-        // Recreate the synthesizer
-        const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
-            SPEECH_KEY,
-            SPEECH_REGION
-        );
-        speechConfig.speechSynthesisVoiceName = 'sv-SE-SofieNeural';
-        azureSynthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig);
-        
-        azureSynthesizer.speakTextAsync(
-            text,
-            result => {
-                if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
-                    console.log('Azure speech synthesis succeeded');
-                } else {
-                    console.error('Azure speech synthesis failed:', result.errorDetails);
-                    // Fallback to browser speech on error
-                    speakWithBrowser(text);
-                }
+        const response = await fetch(`${PROXY_API_URL}/api/tts`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
             },
-            error => {
-                console.error('Error during Azure speech synthesis:', error);
-                // Fallback to browser speech on error
-                speakWithBrowser(text);
+            body: JSON.stringify({
+                text: text
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`TTS API error: ${response.status}`);
+        }
+        
+        const audioBlob = await response.blob();
+        audioCache[text] = URL.createObjectURL(audioBlob);
+    } catch (error) {
+        console.error('Error preloading audio:', error);
+    }
+}
+
+
+
+// Current audio element for playback control
+let currentAudio = null;
+
+// Speak the Swedish word
+async function speakWord(text) {
+    // Stop any currently playing audio
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+    }
+    
+    try {
+        // Check if audio is already cached
+        let audioUrl = audioCache[text];
+        
+        if (!audioUrl) {
+            // Fetch audio via proxy
+            const response = await fetch(`${PROXY_API_URL}/api/tts`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    text: text
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`TTS API error: ${response.status}`);
             }
-        );
-    } else {
-        // Use browser speech synthesis as fallback
-        speakWithBrowser(text);
+            
+            const audioBlob = await response.blob();
+            audioUrl = URL.createObjectURL(audioBlob);
+            audioCache[text] = audioUrl;
+        }
+        
+        // Play the audio
+        currentAudio = new Audio(audioUrl);
+        await currentAudio.play();
+        console.log('TTS playback started');
+        
+    } catch (error) {
+        console.error('Error during speech synthesis:', error);
+        alert('Failed to play audio. Make sure your proxy server is running.');
     }
 }
 // Parse CSV data into array of word objects
@@ -214,6 +198,9 @@ function displayWord(word, addToHistory = true) {
         }
     }
     
+    // Preload audio for the current word
+    preloadAudio(word.swedish);
+    
     // Update button states
     updateNavigationButtons();
 }
@@ -269,18 +256,6 @@ async function init() {
         await fetch(`${PROXY_API_URL}/health`);
     } catch (error) {
         console.warn('Failed to wake up proxy server:', error);
-    }
-    
-    // Initialize Azure speech synthesis
-    initializeSpeech();
-    
-    // Load voices for browser speech synthesis fallback
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.getVoices();
-        // Some browsers need this event to load voices
-        window.speechSynthesis.onvoiceschanged = () => {
-            window.speechSynthesis.getVoices();
-        };
     }
     
     // Try to get cached words first for immediate display
@@ -373,8 +348,6 @@ async function init() {
     });
 }
 
-// OpenAI Functions
-
 // Load cached examples if available
 function loadCachedExamples(swedishWord) {
     try {
@@ -405,7 +378,7 @@ function saveExamplesToCache(swedishWord, examples) {
     }
 }
 
-// Generate examples using OpenAI via proxy server
+// Generate examples
 async function generateExamples(swedishWord, englishTranslation) {
     const generateBtn = document.getElementById('generateBtn');
     const loading = document.getElementById('loading');
@@ -448,6 +421,11 @@ async function generateExamples(swedishWord, englishTranslation) {
         if (historyIndex >= 0 && historyIndex < wordHistory.length) {
             wordHistory[historyIndex].examples = examples;
         }
+        
+        // Preload audio for all example sentences
+        examples.forEach(example => {
+            preloadAudio(example.swedish);
+        });
         
         // Display examples
         displayExamples(examples);
