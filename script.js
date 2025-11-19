@@ -397,7 +397,14 @@ function displayExamples(examples) {
         
         const swedishText = document.createElement('div');
         swedishText.className = 'example-swedish';
-        swedishText.textContent = example.swedish;
+        swedishText.textContent = '🔊 ' + example.swedish;
+        swedishText.style.cursor = 'pointer';
+        swedishText.title = 'Click to hear pronunciation';
+        
+        // Add click handler to speak the Swedish sentence
+        swedishText.addEventListener('click', () => {
+            speakWord(example.swedish);
+        });
         
         const englishText = document.createElement('div');
         englishText.className = 'example-english';
