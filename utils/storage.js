@@ -24,6 +24,6 @@ export const storage = {
 
     // Get proxy API URL
     getProxyUrl() {
-        return localStorage.getItem('PROXY_API_URL') || 'https://svenska-new-tab-backend.fly.dev';
+        return localStorage.getItem('apiBaseUrl') || 'https://svenska-new-tab-backend.fly.dev';
     }
 };

@@ -1,11 +1,11 @@
 // API utility functions for interacting with the backend
 export const api = {
-    BASE_URL: localStorage.getItem('apiBaseUrl') || 'https://svenska-new-tab-backend.fly.dev/api',
+    BASE_URL: localStorage.getItem('apiBaseUrl') || 'https://svenska-new-tab-backend.fly.dev',
 
     // Get all words
     async getAllWords() {
         try {
-            const response = await fetch(`${this.BASE_URL}/words`);
+            const response = await fetch(`${this.BASE_URL}/api/words`);
             if (!response.ok) {
                 throw new Error(`Failed to fetch words: ${response.status}`);
             }
@@ -20,7 +20,7 @@ export const api = {
     // Get single word by ID
     async getWord(id) {
         try {
-            const response = await fetch(`${this.BASE_URL}/words/${id}`);
+            const response = await fetch(`${this.BASE_URL}/api/words/${id}`);
             if (!response.ok) {
                 throw new Error(`Failed to fetch word: ${response.status}`);
             }
@@ -34,7 +34,7 @@ export const api = {
     // Create new word
     async createWord(original, translation, examples = []) {
         try {
-            const response = await fetch(`${this.BASE_URL}/words`, {
+            const response = await fetch(`${this.BASE_URL}/api/words`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -56,7 +56,7 @@ export const api = {
     // Update word
     async updateWord(id, original, translation, examples = []) {
         try {
-            const response = await fetch(`${this.BASE_URL}/words/${id}`, {
+            const response = await fetch(`${this.BASE_URL}/api/words/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -78,7 +78,7 @@ export const api = {
     // Delete word
     async deleteWord(id) {
         try {
-            const response = await fetch(`${this.BASE_URL}/words/${id}`, {
+            const response = await fetch(`${this.BASE_URL}/api/words/${id}`, {
                 method: 'DELETE'
             });
             if (!response.ok) {
@@ -94,7 +94,7 @@ export const api = {
     // Increment read count
     async incrementReadCount(id) {
         try {
-            const response = await fetch(`${this.BASE_URL}/words/${id}/increment-read`, {
+            const response = await fetch(`${this.BASE_URL}/api/words/${id}/increment-read`, {
                 method: 'POST'
             });
             if (!response.ok) {
@@ -110,7 +110,7 @@ export const api = {
     // Get statistics
     async getStats() {
         try {
-            const response = await fetch(`${this.BASE_URL}/stats`);
+            const response = await fetch(`${this.BASE_URL}/api/stats`);
             if (!response.ok) {
                 throw new Error(`Failed to fetch stats: ${response.status}`);
             }
@@ -134,7 +134,7 @@ export const api = {
     // Generate speech for a word and cache it
     async generateWordSpeech(text, wordId) {
         try {
-            const response = await fetch(`${this.BASE_URL}/tts`, {
+            const response = await fetch(`${this.BASE_URL}/api/tts`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -162,13 +162,13 @@ export const api = {
 
     // Get cached audio by filename
     getSpeechUrl(filename) {
-        return `${this.BASE_URL}/speech/${filename}`;
+        return `${this.BASE_URL}/api/speech/${filename}`;
     },
 
     // Generate speech for an example sentence
     async generateExampleSpeech(wordId, exampleIndex, exampleText) {
         try {
-            const response = await fetch(`${this.BASE_URL}/generate-example-speech`, {
+            const response = await fetch(`${this.BASE_URL}/api/generate-example-speech`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

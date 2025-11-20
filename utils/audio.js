@@ -1,10 +1,50 @@
 // Audio playback utilities
 export const audio = {
     cache: {},
-    audioObjectCache: {},
     currentAudio: null,
 
-    // Preload audio for a word using cached speech file if available
+    // Generate audio using /api/tts and return the speech filename
+    async generateAudio(text, proxyUrl) {
+        try {
+            const response = await fetch(`${proxyUrl}/api/tts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`TTS API error: ${response.status}`);
+            }
+            
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const speechFile = response.headers.get('X-Speech-File');
+            
+            // Cache the audio
+            if (speechFile) {
+                this.cache[speechFile] = audioUrl;
+            }
+            this.cache[text] = audioUrl;
+            
+            return { audioUrl, speechFile };
+        } catch (error) {
+            console.error('Error generating audio:', error);
+            throw error;
+        }
+    },
+
+    // Get audio URL (from cache or speech endpoint)
+    getAudioUrl(speechFilename, proxyUrl) {
+        if (this.cache[speechFilename]) {
+            return this.cache[speechFilename];
+        }
+        
+        const audioUrl = `${proxyUrl}/api/speech/${speechFilename}`;
+        this.cache[speechFilename] = audioUrl;
+        return audioUrl;
+    },
+
+    // Preload audio for a word
     async preloadWord(word, proxyUrl) {
         const cacheKey = word.speech || word.original;
         
@@ -13,44 +53,20 @@ export const audio = {
         }
         
         try {
-            let audioUrl;
-            
             if (word.speech) {
-                // Use cached audio directly from the speech endpoint
-                audioUrl = `${proxyUrl}/api/speech/${word.speech}`;
-                this.cache[cacheKey] = audioUrl;
+                // Use cached audio from speech endpoint
+                this.getAudioUrl(word.speech, proxyUrl);
             } else {
-                // Generate and cache audio
-                const response = await fetch(`${proxyUrl}/api/tts`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        text: word.original,
-                        wordId: word.id || word._id
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`TTS API error: ${response.status}`);
-                }
-                
-                const audioBlob = await response.blob();
-                audioUrl = URL.createObjectURL(audioBlob);
-                this.cache[cacheKey] = audioUrl;
-                
-                // Update word object with the filename for future use
-                const speechFile = response.headers.get('X-Speech-File');
-                if (speechFile && (word.id || word._id)) {
-                    word.speech = speechFile;
-                }
+                // Generate new audio
+                await this.generateAudio(word.original, proxyUrl);
             }
         } catch (error) {
             console.error('Error preloading word audio:', error);
         }
     },
 
-    // Preload audio for an example using cached speech file if available
-    async preloadExample(example, word, exampleIndex, proxyUrl) {
+    // Preload audio for an example
+    async preloadExample(example, proxyUrl) {
         const cacheKey = example.speech || example.swedish;
         
         if (this.cache[cacheKey]) {
@@ -59,35 +75,11 @@ export const audio = {
         
         try {
             if (example.speech) {
-                // Use cached audio directly
-                const audioUrl = `${proxyUrl}/api/speech/${example.speech}`;
-                this.cache[cacheKey] = audioUrl;
+                // Use cached audio from speech endpoint
+                this.getAudioUrl(example.speech, proxyUrl);
             } else {
-                // Generate audio for examples without cached speech
-                if (word && (word.id || word._id)) {
-                    const response = await fetch(`${proxyUrl}/api/generate-example-speech`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            wordId: word.id || word._id,
-                            exampleIndex: exampleIndex,
-                            exampleText: example.swedish
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`Example TTS API error: ${response.status}`);
-                    }
-                    
-                    const result = await response.json();
-                    // Update the example object with the speech filename
-                    example.speech = result.speechFilename;
-                    
-                    const audioUrl = `${proxyUrl}/api/speech/${result.speechFilename}`;
-                    this.cache[cacheKey] = audioUrl;
-                    // Also cache with the new key
-                    this.cache[example.speech] = audioUrl;
-                }
+                // Generate new audio
+                await this.generateAudio(example.swedish, proxyUrl);
             }
         } catch (error) {
             console.error('Error preloading example audio:', error);
@@ -96,45 +88,27 @@ export const audio = {
 
     // Play audio for a word
     async playWord(word, proxyUrl) {
-        // Stop any currently playing audio
         if (this.currentAudio) {
             this.currentAudio.pause();
             this.currentAudio.currentTime = 0;
         }
         
         try {
-            const cacheKey = word.speech || word.original;
-            let audioUrl = this.cache[cacheKey];
+            let audioUrl;
             
-            if (!audioUrl) {
-                if (word.speech) {
-                    // Use cached audio directly from the speech endpoint
-                    audioUrl = `${proxyUrl}/api/speech/${word.speech}`;
-                    this.cache[cacheKey] = audioUrl;
-                } else {
-                    // Generate and cache audio
-                    const response = await fetch(`${proxyUrl}/api/tts`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            text: word.original,
-                            wordId: word.id || word._id
-                        })
+            if (word.speech) {
+                audioUrl = this.getAudioUrl(word.speech, proxyUrl);
+            } else {
+                const result = await this.generateAudio(word.original, proxyUrl);
+                audioUrl = result.audioUrl;
+                
+                // Update word with speech filename if available
+                if (result.speechFile && word._id) {
+                    word.speech = result.speechFile;
+                    // Persist to backend
+                    this.updateWordSpeech(word._id, result.speechFile, proxyUrl).catch(err => {
+                        console.warn('Failed to update word speech in backend:', err);
                     });
-                    
-                    if (!response.ok) {
-                        throw new Error(`TTS API error: ${response.status}`);
-                    }
-                    
-                    const audioBlob = await response.blob();
-                    audioUrl = URL.createObjectURL(audioBlob);
-                    this.cache[cacheKey] = audioUrl;
-                    
-                    // Update word object with the filename for future use
-                    const speechFile = response.headers.get('X-Speech-File');
-                    if (speechFile && (word.id || word._id)) {
-                        word.speech = speechFile;
-                    }
                 }
             }
             
@@ -143,70 +117,34 @@ export const audio = {
             console.log('Word audio playback started');
             
         } catch (error) {
-            console.error('Error during word speech synthesis:', error);
+            console.error('Error playing word audio:', error);
             alert('Failed to play audio. Make sure your proxy server is running.');
         }
     },
 
     // Play audio for an example
     async playExample(example, word, exampleIndex, proxyUrl) {
-        // Stop any currently playing audio
         if (this.currentAudio) {
             this.currentAudio.pause();
             this.currentAudio.currentTime = 0;
         }
         
         try {
-            const cacheKey = example.speech || example.swedish;
-            let audioUrl = this.cache[cacheKey];
+            let audioUrl;
             
-            if (!audioUrl) {
-                if (example.speech) {
-                    // Use cached audio directly from the speech endpoint
-                    audioUrl = `${proxyUrl}/api/speech/${example.speech}`;
-                    this.cache[cacheKey] = audioUrl;
-                } else {
-                    // If word has an ID, use the generate-example-speech endpoint
-                    if (word && (word.id || word._id)) {
-                        const response = await fetch(`${proxyUrl}/api/generate-example-speech`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                wordId: word.id || word._id,
-                                exampleIndex: exampleIndex,
-                                exampleText: example.swedish
-                            })
-                        });
-                        
-                        if (!response.ok) {
-                            throw new Error(`Example TTS API error: ${response.status}`);
-                        }
-                        
-                        const result = await response.json();
-                        // Update the example object with the speech filename
-                        // The backend has already saved this to the database
-                        example.speech = result.speechFilename;
-                        
-                        audioUrl = `${proxyUrl}/api/speech/${result.speechFilename}`;
-                        this.cache[cacheKey] = audioUrl;
-                        // Also cache with the new key
-                        this.cache[example.speech] = audioUrl;
-                    } else {
-                        // Fallback: use regular TTS endpoint for words without ID
-                        const response = await fetch(`${proxyUrl}/api/tts`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ text: example.swedish })
-                        });
-                        
-                        if (!response.ok) {
-                            throw new Error(`TTS API error: ${response.status}`);
-                        }
-                        
-                        const audioBlob = await response.blob();
-                        audioUrl = URL.createObjectURL(audioBlob);
-                        this.cache[cacheKey] = audioUrl;
-                    }
+            if (example.speech) {
+                audioUrl = this.getAudioUrl(example.speech, proxyUrl);
+            } else {
+                const result = await this.generateAudio(example.swedish, proxyUrl);
+                audioUrl = result.audioUrl;
+                
+                // Update example with speech filename if available
+                if (result.speechFile && word?._id) {
+                    example.speech = result.speechFile;
+                    // Persist to backend
+                    this.updateExampleSpeech(word._id, exampleIndex, result.speechFile, proxyUrl).catch(err => {
+                        console.warn('Failed to update example speech in backend:', err);
+                    });
                 }
             }
             
@@ -215,15 +153,53 @@ export const audio = {
             console.log('Example audio playback started');
             
         } catch (error) {
-            console.error('Error during example speech synthesis:', error);
-            console.error('Word:', word, 'Example:', example, 'Index:', exampleIndex);
+            console.error('Error playing example audio:', error);
             alert('Failed to play example audio. Make sure your proxy server is running.');
         }
     },
 
-    // Legacy method for backward compatibility (text-based TTS without caching)
+    // Update word speech field in backend
+    async updateWordSpeech(wordId, speechFile, proxyUrl) {
+        try {
+            const response = await fetch(`${proxyUrl}/api/words/${wordId}/speech`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ speech: speechFile })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to update word speech: ${response.status}`);
+            }
+            
+            console.log(`Updated word ${wordId} with speech file: ${speechFile}`);
+        } catch (error) {
+            console.error('Error updating word speech:', error);
+            throw error;
+        }
+    },
+
+    // Update example speech field in backend
+    async updateExampleSpeech(wordId, exampleIndex, speechFile, proxyUrl) {
+        try {
+            const response = await fetch(`${proxyUrl}/api/words/${wordId}/examples/${exampleIndex}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ speech: speechFile })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to update example speech: ${response.status}`);
+            }
+            
+            console.log(`Updated word ${wordId} example ${exampleIndex} with speech file: ${speechFile}`);
+        } catch (error) {
+            console.error('Error updating example speech:', error);
+            throw error;
+        }
+    },
+
+    // Legacy method for backward compatibility
     async play(text, proxyUrl) {
-        // Stop any currently playing audio
         if (this.currentAudio) {
             this.currentAudio.pause();
             this.currentAudio.currentTime = 0;
@@ -233,19 +209,8 @@ export const audio = {
             let audioUrl = this.cache[text];
             
             if (!audioUrl) {
-                const response = await fetch(`${proxyUrl}/api/tts`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text })
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`TTS API error: ${response.status}`);
-                }
-                
-                const audioBlob = await response.blob();
-                audioUrl = URL.createObjectURL(audioBlob);
-                this.cache[text] = audioUrl;
+                const result = await this.generateAudio(text, proxyUrl);
+                audioUrl = result.audioUrl;
             }
             
             this.currentAudio = new Audio(audioUrl);

@@ -30,9 +30,9 @@ export const examples = {
     },
 
     // Preload audio for a list of examples
-    preloadAudio(examplesList, word, proxyUrl) {
-        examplesList.forEach((example, index) => {
-            audio.preloadExample(example, word, index, proxyUrl);
+    preloadAudio(examplesList, proxyUrl) {
+        examplesList.forEach((example) => {
+            audio.preloadExample(example, proxyUrl);
         });
     }
 };

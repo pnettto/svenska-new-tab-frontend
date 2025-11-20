@@ -67,8 +67,8 @@ function App() {
       setHistoryIndex(prev => prev + 1);
       
       // Increment read count via API
-      if (word.id || word._id) {
-        api.incrementReadCount(word.id || word._id).catch(error => {
+      if (word._id) {
+        api.incrementReadCount(word._id).catch(error => {
           console.warn('Failed to increment read count:', error);
         });
       }
@@ -76,7 +76,7 @@ function App() {
       if (word.examples && word.examples.length > 0) {
         setExamples(word.examples);
         setShowExamples(true);
-        examplesService.preloadAudio(word.examples, word, proxyUrl);
+        examplesService.preloadAudio(word.examples, proxyUrl);
       }
     }
 
@@ -131,7 +131,7 @@ function App() {
     if (!showExamples && currentWord.examples?.length > 0) {
       setExamples(currentWord.examples);
       setShowExamples(true);
-      examplesService.preloadAudio(currentWord.examples, currentWord, proxyUrl);
+      examplesService.preloadAudio(currentWord.examples, proxyUrl);
       return;
     }
 
@@ -161,7 +161,7 @@ function App() {
       }
       
       updateExamplesInHistory(updatedExamples);
-      examplesService.preloadAudio(data.examples, currentWord, proxyUrl);
+      examplesService.preloadAudio(data.examples, proxyUrl);
       setShowExamples(true);
 
     } catch (error) {
