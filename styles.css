@@ -40,12 +40,12 @@ body {
 }
 
 .add-word-btn:hover {
-    transform: scale(1.1) rotate(90deg);
+    transform: scale(1.1);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .add-word-btn:active {
-    transform: scale(1.05) rotate(90deg);
+    transform: scale(1.05);
 }
 
 /* Modal */
