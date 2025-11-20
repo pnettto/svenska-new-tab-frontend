@@ -127,7 +127,8 @@ function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             swedishWord: currentWord.original,
-            englishTranslation: currentWord.translation
+            englishTranslation: currentWord.translation,
+            existingExamples: examples  // Pass existing examples to avoid duplicates
           })
         });
 
@@ -137,7 +138,7 @@ function App() {
         }
 
         const data = await response.json();
-        const updatedExamples = [...examples, ...data.examples];
+        const updatedExamples = [...data.examples, ...examples];
         setExamples(updatedExamples);
 
         // Update word in API with all examples
