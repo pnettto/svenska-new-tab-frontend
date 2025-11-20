@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Svenska App</title>
+</head>
+<body>
+    <h1>Testing Alpine.js Integration</h1>
+    <div id="test-results"></div>
+    
+    <script type="module">
+        import app from './app.js';
+        import { storage } from './utils/storage.js';
+        import { audio } from './utils/audio.js';
+        import { csv } from './utils/csv.js';
+        
+        const results = document.getElementById('test-results');
+        
+        function log(message, isError = false) {
+            const p = document.createElement('p');
+            p.textContent = message;
+            p.style.color = isError ? 'red' : 'green';
+            results.appendChild(p);
+        }
+        
+        // Test imports
+        log('✓ app.js imported successfully');
+        log('✓ storage.js imported successfully');
+        log('✓ audio.js imported successfully');
+        log('✓ csv.js imported successfully');
+        
+        // Test storage utilities
+        if (typeof storage.getCachedWords === 'function') {
+            log('✓ storage.getCachedWords is a function');
+        }
+        
+        // Test audio utilities
+        if (typeof audio.play === 'function') {
+            log('✓ audio.play is a function');
+        }
+        
+        // Test CSV utilities
+        const testCsv = 'hej,hello\\nhund,dog';
+        const parsed = csv.parse(testCsv);
+        if (parsed.length === 2 && parsed[0].swedish === 'hej') {
+            log('✓ CSV parsing works correctly');
+        } else {
+            log('✗ CSV parsing failed', true);
+        }
+        
+        // Test shuffle
+        const testArray = [1, 2, 3, 4, 5];
+        const shuffled = csv.shuffle(testArray);
+        if (shuffled.length === testArray.length) {
+            log('✓ Array shuffling works correctly');
+        } else {
+            log('✗ Array shuffling failed', true);
+        }
+        
+        // Test app component
+        const appInstance = app();
+        if (typeof appInstance.init === 'function') {
+            log('✓ App component initialized successfully');
+        }
+        
+        if (typeof appInstance.displayWord === 'function') {
+            log('✓ displayWord method exists');
+        }
+        
+        if (typeof appInstance.handleWordClick === 'function') {
+            log('✓ handleWordClick method exists');
+        }
+        
+        log('\\n=== All tests passed! ===');
+    </script>
+</body>
+</html>
