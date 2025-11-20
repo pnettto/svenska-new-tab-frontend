@@ -117,6 +117,71 @@ function App() {
   const handleGenerateExamples = async () => {
     if (!currentWord || isGeneratingExamples) return;
 
+    // If examples are already showing, generate new ones and append
+    if (showExamples && examples.length > 0) {
+      setIsGeneratingExamples(true);
+
+      try {
+        const response = await fetch(`${proxyUrl}/api/generate-examples`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            swedishWord: currentWord.original,
+            englishTranslation: currentWord.translation
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Server error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const updatedExamples = [...examples, ...data.examples];
+        setExamples(updatedExamples);
+
+        // Update word in API with all examples
+        if (currentWord.id) {
+          await api.updateWord(
+            currentWord.id,
+            currentWord.original,
+            currentWord.translation,
+            updatedExamples
+          );
+        }
+        
+        setWordHistory(prev => {
+          const newHistory = [...prev];
+          if (historyIndex >= 0 && historyIndex < newHistory.length) {
+            newHistory[historyIndex].examples = updatedExamples;
+          }
+          return newHistory;
+        });
+
+        data.examples.forEach(example => {
+          audio.preload(example.swedish, proxyUrl);
+        });
+
+      } catch (error) {
+        console.error('Error generating examples:', error);
+        alert(`Failed to generate examples: ${error.message}\n\nMake sure your proxy server is running.`);
+      } finally {
+        setIsGeneratingExamples(false);
+      }
+      return;
+    }
+
+    // First click: check if examples exist in database
+    if (currentWord.examples && currentWord.examples.length > 0) {
+      setExamples(currentWord.examples);
+      setShowExamples(true);
+      currentWord.examples.forEach(example => {
+        audio.preload(example.swedish, proxyUrl);
+      });
+      return;
+    }
+
+    // No existing examples, generate new ones
     setIsGeneratingExamples(true);
     setShowExamples(false);
 
@@ -280,6 +345,7 @@ function App() {
           onNext=${handleNext}
           canGoPrevious=${canGoPrevious}
           isGeneratingExamples=${isGeneratingExamples}
+          showExamples=${showExamples}
         />
         
         <${ExamplesSection}

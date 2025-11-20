@@ -27,7 +27,8 @@ export function ButtonGroup({
   onGenerateExamples, 
   onNext,
   canGoPrevious,
-  isGeneratingExamples
+  isGeneratingExamples,
+  showExamples
 }) {
   return html`
     <div class="button-group">
@@ -50,8 +51,9 @@ export function ButtonGroup({
         class="btn" 
         onClick=${onGenerateExamples}
         disabled=${isGeneratingExamples}
+        title=${showExamples ? "Generate more examples" : "Show examples"}
       >
-        Exampel
+        ${showExamples ? 'Fler' : 'Exampel'}
       </button>
       <button 
         class="btn" 
