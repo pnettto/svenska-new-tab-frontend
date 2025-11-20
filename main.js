@@ -76,6 +76,7 @@ function App() {
       if (word.examples && word.examples.length > 0) {
         setExamples(word.examples);
         setShowExamples(true);
+        examplesService.preloadAudio(word.examples, word, proxyUrl);
       }
     }
 

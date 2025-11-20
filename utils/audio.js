@@ -63,7 +63,31 @@ export const audio = {
                 const audioUrl = `${proxyUrl}/api/speech/${example.speech}`;
                 this.cache[cacheKey] = audioUrl;
             } else {
-                // Will be generated on first play
+                // Generate audio for examples without cached speech
+                if (word && (word.id || word._id)) {
+                    const response = await fetch(`${proxyUrl}/api/generate-example-speech`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            wordId: word.id || word._id,
+                            exampleIndex: exampleIndex,
+                            exampleText: example.swedish
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Example TTS API error: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    // Update the example object with the speech filename
+                    example.speech = result.speechFilename;
+                    
+                    const audioUrl = `${proxyUrl}/api/speech/${result.speechFilename}`;
+                    this.cache[cacheKey] = audioUrl;
+                    // Also cache with the new key
+                    this.cache[example.speech] = audioUrl;
+                }
             }
         } catch (error) {
             console.error('Error preloading example audio:', error);
