@@ -1,6 +1,6 @@
 // API utility functions for interacting with the backend
 export const api = {
-    BASE_URL: 'http://localhost:3000/api',
+    BASE_URL: localStorage.getItem('apiBaseUrl') || 'https://svenska-new-tab-backend.fly.dev/api',
 
     // Get all words
     async getAllWords() {

@@ -24,21 +24,29 @@ function App() {
 
   // Initialize app
   useEffect(() => {
-    words.initialize(proxyUrl, storage).then(initialWords => {
-      if (initialWords) {
-        setShuffledWords(initialWords);
-        setShuffledIndex(0);
-        displayWord(initialWords[0]);
-        setShuffledIndex(1);
-      }
-    });
+    // Try to get cached words first for immediate display
+    const cachedWords = storage.getCachedWords();
+    if (cachedWords && cachedWords.length > 0) {
+      const shuffled = api.shuffle(cachedWords);
+      setShuffledWords(shuffled);
+      setShuffledIndex(0);
+      displayWord(shuffled[0]);
+      setShuffledIndex(1);
+    }
 
-    // Fetch fresh words in background
+    // Fetch fresh words in background and update if we got new ones
     api.getAllWords().then(freshWords => {
-      if (freshWords) {
+      if (freshWords && freshWords.length > 0) {
         storage.saveWords(freshWords);
-        const shuffled = api.shuffle(freshWords);
-        setShuffledWords(shuffled);
+        
+        // Only update if we didn't have cached words initially
+        if (!cachedWords || cachedWords.length === 0) {
+          const shuffled = api.shuffle(freshWords);
+          setShuffledWords(shuffled);
+          setShuffledIndex(0);
+          displayWord(shuffled[0]);
+          setShuffledIndex(1);
+        }
       }
     });
   }, []);
