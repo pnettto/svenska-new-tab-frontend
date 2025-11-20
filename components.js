@@ -84,11 +84,11 @@ export function ExamplesSection({
         <div class="examples-container">
           <h3>Exampelmeningar:</h3>
           <div class="examples-list">
-            ${examples.map(example => html`
+            ${examples.map((example, index) => html`
               <div class="example-item" key=${example.swedish}>
                 <div 
                   class="example-swedish"
-                  onClick=${() => onPlayExample(example.swedish)}
+                  onClick=${() => onPlayExample(example, index)}
                   style="cursor: pointer;"
                   title="Click to hear pronunciation"
                 >

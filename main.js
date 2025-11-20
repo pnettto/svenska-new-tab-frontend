@@ -59,8 +59,8 @@ function App() {
       setHistoryIndex(prev => prev + 1);
       
       // Increment read count via API
-      if (word.id) {
-        api.incrementReadCount(word.id).catch(error => {
+      if (word.id || word._id) {
+        api.incrementReadCount(word.id || word._id).catch(error => {
           console.warn('Failed to increment read count:', error);
         });
       }
@@ -71,7 +71,8 @@ function App() {
       }
     }
 
-    audio.preload(word.original, proxyUrl);
+    // Preload audio for the word using speech caching
+    audio.preloadWord(word, proxyUrl);
   };
 
   const displayNewWord = () => {
@@ -92,7 +93,7 @@ function App() {
 
     if (!translationRevealed) {
       setTranslationRevealed(true);
-      audio.play(currentWord.original, proxyUrl);
+      audio.playWord(currentWord, proxyUrl);
     } else {
       displayNewWord();
     }
@@ -100,7 +101,7 @@ function App() {
 
   const handlePlayAudio = () => {
     if (currentWord) {
-      audio.play(currentWord.original, proxyUrl);
+      audio.playWord(currentWord, proxyUrl);
     }
   };
 
@@ -121,7 +122,7 @@ function App() {
     if (!showExamples && currentWord.examples?.length > 0) {
       setExamples(currentWord.examples);
       setShowExamples(true);
-      examplesService.preloadAudio(currentWord.examples, proxyUrl);
+      examplesService.preloadAudio(currentWord.examples, currentWord, proxyUrl);
       return;
     }
 
@@ -134,15 +135,16 @@ function App() {
         proxyUrl,
         currentWord.original,
         currentWord.translation,
-        showExamples ? examples : []
+        showExamples ? examples : [],
+        currentWord.id || currentWord._id
       );
       const updatedExamples = showExamples ? [...data.examples, ...examples] : data.examples;
       
       setExamples(updatedExamples);
       
-      if (currentWord.id) {
+      if (currentWord.id || currentWord._id) {
         await api.updateWord(
-          currentWord.id,
+          currentWord.id || currentWord._id,
           currentWord.original,
           currentWord.translation,
           updatedExamples
@@ -150,7 +152,7 @@ function App() {
       }
       
       updateExamplesInHistory(updatedExamples);
-      examplesService.preloadAudio(data.examples, proxyUrl);
+      examplesService.preloadAudio(data.examples, currentWord, proxyUrl);
       setShowExamples(true);
 
     } catch (error) {
@@ -181,8 +183,8 @@ function App() {
     }
   };
 
-  const handlePlayExample = (text) => {
-    audio.play(text, proxyUrl);
+  const handlePlayExample = (example, exampleIndex) => {
+    audio.playExample(example, currentWord, exampleIndex, proxyUrl);
   };
 
   const handleSubmitCustomWord = async (swedish) => {

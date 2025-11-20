@@ -129,5 +129,63 @@ export const api = {
             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
         return shuffled;
+    },
+
+    // Generate speech for a word and cache it
+    async generateWordSpeech(text, wordId) {
+        try {
+            const response = await fetch(`${this.BASE_URL}/tts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    text,
+                    ...(wordId && { wordId })
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`TTS API error: ${response.status}`);
+            }
+            
+            const audioBlob = await response.blob();
+            const speechFile = response.headers.get('X-Speech-File');
+            
+            return {
+                audioBlob,
+                speechFile
+            };
+        } catch (error) {
+            console.error('Error generating word speech:', error);
+            return null;
+        }
+    },
+
+    // Get cached audio by filename
+    getSpeechUrl(filename) {
+        return `${this.BASE_URL}/speech/${filename}`;
+    },
+
+    // Generate speech for an example sentence
+    async generateExampleSpeech(wordId, exampleIndex, exampleText) {
+        try {
+            const response = await fetch(`${this.BASE_URL}/generate-example-speech`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    wordId,
+                    exampleIndex,
+                    exampleText
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to generate example speech: ${response.status}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Error generating example speech:', error);
+            return null;
+        }
     }
 };
